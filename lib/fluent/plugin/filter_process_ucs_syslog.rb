@@ -22,6 +22,9 @@ module Fluent::Plugin
     def filter(tag, time, record)
 
       message = record["message"]
+      record["event"] = ""
+      record["stage"] = ""
+      record["machineId"] = ""
 
       event = determineEvent(message)
       if !event.nil?
