@@ -75,7 +75,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         filtered_records = filter(records)
         assert_equal records[0]['message'], filtered_records[0]['message']
         assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
-        assert_equal nil, filtered_records[0]['event']
-        assert_equal nil, filtered_records[0]['stage']
+        assert_equal "", filtered_records[0]['event']
+        assert_equal "", filtered_records[0]['stage']
     end
 end
