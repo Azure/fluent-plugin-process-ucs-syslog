@@ -43,7 +43,10 @@ module Fluent::Plugin
       dn = message[@@bladeRegex,0]
 
       serviceProfile = getServiceProfile(record[ucsHostNameKey], dn, 1)
-      record["machineId"] = "Cisco_UCS:#{coloregion}:#{serviceProfile}"
+      if serviceProfile != ""
+        record["machineId"] = "Cisco_UCS:#{coloregion}:#{serviceProfile}"
+      end
+      
       record
     end
 
