@@ -8,7 +8,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
     end
 
     CONFIG = %[
-        @type add_machine_id
+        @type process_ucs_syslog
         ucsHostNameKey SyslogSource
         coloregion SJC2
         domain testDomain
@@ -77,5 +77,16 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
         assert_equal "", filtered_records[0]['event']
         assert_equal "", filtered_records[0]['stage']
+    end
+
+    def test_filter_no_username
+        records = [
+            { 
+                "message" => "2018 Apr 30 18:11:59 UTC: %AUTHPRIV-5-SYSTEM_MSG: New user added with username ucs-HANATDI\\test-user.ucs - securityd",
+                "SyslogSource" => "1.1.1.1"
+            }
+        ]
+        filtered_records = filter(records)
+        assert_equal "2018 Apr 30 18:11:59 UTC: %AUTHPRIV-5-SYSTEM_MSG: New user added with username ucs-HANATDI - securityd", filtered_records[0]['message']
     end
 end

@@ -36,6 +36,9 @@ module Fluent::Plugin
         record["stage"] = stage
       end
 
+      # Need to filter out usernames
+      record["message"] = record["message"].gsub(/\\[-\w.]+/, "")
+
       if message !~ @@bladeRegex
         return record
       end
@@ -46,7 +49,7 @@ module Fluent::Plugin
       if serviceProfile != ""
         record["machineId"] = "Cisco_UCS:#{coloregion}:#{serviceProfile}"
       end
-      
+
       record
     end
 
