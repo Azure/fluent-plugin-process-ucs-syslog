@@ -85,8 +85,9 @@ module Fluent::Plugin
       queryBody = "<configResolveDn cookie=\"%s\" dn=\"%s\"></configResolveDn>" % [token, dn]
       response = callUcsApi(host, queryBody)
       profile = response[/assignedToDn="([\d\w\/-]+)"/,1]
+      errorCode = response[/errorCode="(\d+)"/,1]
       
-      if profile.to_s.empty?
+      if !errorCode.to_s.empty?
         log.info "login failed, retry ", retries
         File.delete(@@tokenFile)
         profile = getServiceProfile(host, dn, retries + 1)
