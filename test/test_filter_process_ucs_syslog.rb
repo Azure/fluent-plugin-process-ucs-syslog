@@ -28,6 +28,8 @@ class ProcessUcsSyslog < Test::Unit::TestCase
                     return '<aaaLogin cookie="" response="yes" outCookie="1111111111/12345678-abcd-abcd-abcd-123456789000"> </aaaLogin>'
                 elsif body == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-7\"></configResolveDn>" && host == "1.1.1.1"
                     return '<lsServer assignedToDn="org-root/org-T100/ls-testServiceProfile"/>'
+                elsif body == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-5\"></configResolveDn>" && host == "1.1.1.1"
+                    return '<lsServer assignedToDn=""/>'
                 else
                     return ''
                 end
@@ -88,5 +90,16 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         ]
         filtered_records = filter(records)
         assert_equal "2018 Apr 30 18:11:59 UTC: %AUTHPRIV-5-SYSTEM_MSG: New user added with username ucs-HANATDI - securityd", filtered_records[0]['message']
+    end
+
+    def test_filter_no_service_profile
+        records = [
+            { 
+                "message" => "2018 Feb  9 21:07:45 GMT: %UCSM-3-LINK_DOWN: [link-down][sys/chassis-4/blade-5/fabric-A/path-3/vc-1518]",
+                "SyslogSource" => "1.1.1.1"
+            }
+        ]
+        filtered_records = filter(records)
+        assert_equal "", filtered_records[0]['machineId']
     end
 end
