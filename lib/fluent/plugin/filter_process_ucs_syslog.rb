@@ -25,6 +25,7 @@ module Fluent::Plugin
       record["event"] = ""
       record["stage"] = ""
       record["machineId"] = ""
+      record["error"] = ""
 
       event = determineEvent(message)
       if !event.nil?
@@ -45,7 +46,12 @@ module Fluent::Plugin
 
       dn = message[@@bladeRegex,0]
 
-      serviceProfile = getServiceProfile(record[ucsHostNameKey], dn, 1)
+      begin
+        serviceProfile = getServiceProfile(record[ucsHostNameKey], dn, 1)
+      rescue SecurityError => se
+        record["error"] = se.message
+      end
+
       if !serviceProfile.to_s.empty?
         record["machineId"] = "Cisco_UCS:#{coloregion}:#{serviceProfile}"
       end
@@ -76,8 +82,8 @@ module Fluent::Plugin
 
     def getServiceProfile(host, dn, retries)
       if retries > 5
-        log.error "unable to login to UCS to get service profile"
-        return ""
+        log.error "Unable to login to UCS to get service profile"
+        raise SecurityError, "Unable to login to UCS to get service profile"
       end
 
       token = getToken(host)
