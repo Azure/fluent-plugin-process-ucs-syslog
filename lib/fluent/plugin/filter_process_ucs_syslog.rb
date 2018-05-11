@@ -12,8 +12,23 @@ module Fluent::Plugin
 
     @@tokenFile = "/tmp/token"
 
-    @@bladeRegex = /sys\/chassis-\d\/blade-\d/
+    @@eventRegex = /%UCSM-\d-([A-Z_]+)/
+
+    @@linkDownMnemonic = "link-down"
+    @@faultClearedSeverity = "cleared"
+
+    # Example: [F0283][major][link-down][sys/chassis-4/blade-3/fabric-B/path-3/vc-1488]
+    @@tagesRegex = /\[[\w]+\]\[([\w]+)\]\[([-\w]+)\]\[([-\/\w]+)\]/
+    @@restartAdaptorRegex = /Adapter (\d)\/(\d)\/\d restarted/
+
+    @@bladeRegex = /sys\/chassis-(\d)\/blade-(\d)/
     @@stageRegex = /\[FSM:(\w+)\]/
+
+    @@bootEvent = "Boot"
+    @@softShutdownEvent = "Soft Shutdown"
+    @@hardShutdownEvent = "Hard Shutdown"
+    @@externalRestartEvent = "Restart"
+    @@internalRestartEvent = "Internal Restart"
 
     def configure(conf)
       super
@@ -21,11 +36,45 @@ module Fluent::Plugin
 
     def filter(tag, time, record)
 
-      message = record["message"]
+      record["machineId"] = ""
       record["event"] = ""
       record["stage"] = ""
-      record["machineId"] = ""
+      record["type"] = ""
+      record["severity"] = ""
+      record["mnemonic"] = ""
+      record["device"] = ""
       record["error"] = ""
+
+      # Filter out usernames
+      record["message"] = record["message"].gsub(/\\[-\w.]+/, "")
+
+      # Append machine id if found
+      determineMachineId(record, @@bladeRegex)
+
+      # Determine syslog type
+      splitMessage = record["message"].split(": ")
+      if splitMessage[2] !~ @@eventRegex
+        # Did not recognize message, do nothing
+        return record
+      end
+
+      syslogType = splitMessage[2][@@eventRegex, 1]
+      if syslogType == "EVENT"
+        processEvent(record)
+      elsif syslogType == "AUDIT"
+        processAudit(record)
+      else
+        processFaults(record)
+      end
+
+      return record
+    end
+
+    def processEvent(record)
+      record["type"] = "event"
+      record["severity"] = "info"
+
+      message = record["message"]
 
       event = determineEvent(message)
       if !event.nil?
@@ -37,38 +86,60 @@ module Fluent::Plugin
         record["stage"] = stage
       end
 
-      # Need to filter out usernames
-      record["message"] = record["message"].gsub(/\\[-\w.]+/, "")
-
-      if message !~ @@bladeRegex
-        return record
+      # Internal restarts are special as UCS does not fully detect them
+      if event == @@internalRestartEvent
+        record["stage"] = "begin"
+        determineMachineId(record, @@restartAdaptorRegex)
       end
+    end
 
-      dn = message[@@bladeRegex,0]
+    def processAudit(record)
+      record["type"] = "audit"
+      record["severity"] = "info"
+      # We currently don't do anything with audit messages
+    end
 
-      begin
-        serviceProfile = getServiceProfile(record[ucsHostNameKey], dn, 1)
-      rescue SecurityError => se
-        record["error"] = se.message
+    def processFaults(record)
+      message = record["message"]
+      
+      record["type"] = "fault"
+      record["severity"] = message[@@tagesRegex, 1]
+      record["mnemonic"] = message[@@tagesRegex, 2]
+      record["device"] = message[@@tagesRegex, 3]
+
+      # Check if it is an internal restart
+      determineInternalReboot(record)
+    end
+
+    def determineInternalReboot(record)
+      if record["severity"] == @@faultClearedSeverity and record["mnemonic"] == @@linkDownMnemonic
+        # Check if there are any more faults, if not, reboot is complete
+        message = record["message"]
+        chassisNumber = message[@@bladeRegex,1]
+        bladeNumber = message[@@bladeRegex,2]
+
+        response = getFaults(record[ucsHostNameKey], chassisNumber, bladeNumber, @@linkDownMnemonic, @@faultClearedSeverity, 1)
+        numberOfFaults = response.scan(/<faultInst/).length
+
+        if numberOfFaults <= 0
+          record["stage"] = "end"
+          record["event"] = @@internalRestartEvent
+        end
       end
-
-      if !serviceProfile.to_s.empty?
-        record["machineId"] = "Cisco_UCS:#{coloregion}:#{serviceProfile}"
-      end
-
-      record
     end
 
     def determineEvent(message)
       case message
         when /Power-on/
-          event = "Boot"
+          event = @@bootEvent
         when /Soft shutdown/
-          event = "Soft Shutdown"
+          event = @@softShutdownEvent
         when /Hard shutdown/
-          event = "Hard Shutdown"
+          event = @@hardShutdownEvent
         when /Power-cycle/
-          event = "Restart"
+          event = @@externalRestartEvent
+        when @@restartAdaptorRegex
+          event = @@internalRestartEvent
       end
       event
     end
@@ -80,7 +151,57 @@ module Fluent::Plugin
       message[@@stageRegex,1].downcase
     end
 
-    def getServiceProfile(host, dn, retries)
+    def getFaults(host, chassisNumber, bladeNumber, cause, severity, retries)
+      queryBody = "<configResolveClass 
+          cookie=\"%{token}\" 
+          inHierarchical=\"false\" 
+          classId=\"faultInst\">
+          <inFilter>
+          <and>
+            <eq class=\"faultInst\" 
+              property=\"cause\" 
+              value=\"#{cause}\" />
+            <wcard class=\"faultInst\" 
+              property=\"dn\" 
+              value=\"sys/chassis-#{chassisNumber}/blade-#{bladeNumber}\" />
+            <ne class=\"faultInst\" 
+              property=\"severity\" 
+              value=\"#{severity}\" />
+          </and>
+          </inFilter>
+      </configResolveClass>"
+      response = getUcsWithRetry(host, queryBody, 1)
+      return response
+    end
+
+    # Use Regex to determine chassis and blade number from message
+    def determineMachineId(record, regex)
+      message = record["message"]
+      if message !~ regex
+        return
+      end
+
+      chassisNumber = message[regex,1]
+      bladeNumber = message[regex,2]
+
+      begin
+        serviceProfile = getServiceProfile(record[ucsHostNameKey], chassisNumber, bladeNumber, 1)
+      rescue SecurityError => se
+        record["error"] = se.message
+      end
+
+      if !serviceProfile.to_s.empty?
+        record["machineId"] = "Cisco_UCS:#{coloregion}:#{serviceProfile}"
+      end
+    end
+
+    def getServiceProfile(host, chassisNumber, bladeNumber, retries)
+      queryBody = "<configResolveDn cookie=\"%{token}\" dn=\"sys/chassis-#{chassisNumber}/blade-#{bladeNumber}\"></configResolveDn>"
+      response = getUcsWithRetry(host, queryBody, 1)
+      return response[/assignedToDn="([\w\/-]+)"/,1]
+    end
+
+    def getUcsWithRetry(host, queryBody, retries)
       if retries > 5
         log.error "Unable to login to UCS to get service profile"
         raise SecurityError, "Unable to login to UCS to get service profile"
@@ -88,18 +209,16 @@ module Fluent::Plugin
 
       token = getToken(host)
 
-      queryBody = "<configResolveDn cookie=\"%s\" dn=\"%s\"></configResolveDn>" % [token, dn]
-      response = callUcsApi(host, queryBody)
-      profile = response[/assignedToDn="([\d\w\/-]+)"/,1]
+      response = callUcsApi(host, queryBody % {token: token})
       errorCode = response[/errorCode="(\d+)"/,1]
       
       if !errorCode.to_s.empty?
         log.info "login failed, retry ", retries
         File.delete(@@tokenFile)
-        profile = getServiceProfile(host, dn, retries + 1)
+        response = getUcsWithRetry(host, queryBody, retries + 1)
       end
 
-      return profile
+      return response
     end
 
     def getToken(host)
@@ -112,7 +231,7 @@ module Fluent::Plugin
       fullUsername = domain + "\\" + username
       loginBody = "<aaaLogin inName=\"#{fullUsername}\" inPassword=\"#{password}\"></aaaLogin>"
       response = callUcsApi(host, loginBody)
-      token = response[/outCookie="([\d\w\/-]+)"/,1]
+      token = response[/outCookie="([\w\/-]+)"/,1]
 
       File.open(@@tokenFile, "w") do |f|
         f.write(token)
