@@ -248,7 +248,7 @@ module Fluent::Plugin
     def updateEtcd(record)
       sourceIp = record[ucsHostNameKey]
 
-      uri = URI.parse("http://#{@@etcdHostName}:#{@@etcdPort}/v2/keys/#{sourceIp}")
+      uri = URI.parse("http://#{@@etcdHostname}:#{@@etcdPort}/v2/keys/#{sourceIp}")
       request = Net::HTTP::Put.new(uri)
 
       req_options = {
