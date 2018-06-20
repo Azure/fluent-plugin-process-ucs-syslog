@@ -30,6 +30,9 @@ module Fluent::Plugin
     @@externalRestartEvent = "Restart"
     @@internalRestartEvent = "Internal Restart"
 
+    @@etcdHostname = "etcd"
+    @@etcdPort = 2379
+
     def configure(conf)
       super
     end
@@ -205,7 +208,7 @@ module Fluent::Plugin
 
     def getUcsWithRetry(host, queryBody, retries)
       if retries > 5
-        log.error "Unable to login to UCS to get service profile"
+        log.error "Unable to login to UCS"
         raise SecurityError, "Unable to login to UCS"
       end
 
@@ -245,7 +248,7 @@ module Fluent::Plugin
     def updateEtcd(record)
       sourceIp = record[ucsHostNameKey]
 
-      uri = URI.parse("http://etcd:2379/v2/keys/#{sourceIp}")
+      uri = URI.parse("http://#{@@etcdHostName}:#{@@etcdPort}/v2/keys/#{sourceIp}")
       request = Net::HTTP::Put.new(uri)
 
       req_options = {
@@ -262,8 +265,8 @@ module Fluent::Plugin
           record["error"] += "Error updating etcd: Error code: #{response.code} Response: #{response.value}"
         end
       rescue SocketError => se
-        log.error "Error updating etcd: #{se.message}"
-        record["error"] += "Error updating etcd: #{se.message}"
+        log.error "Error updating etcd: SocketError: #{se.message}"
+        record["error"] += "Error updating etcd: SocketError: #{se.message}"
       end
     end
 

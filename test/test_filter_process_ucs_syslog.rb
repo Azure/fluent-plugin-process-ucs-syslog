@@ -12,7 +12,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
     CONFIG = %[
         @type process_ucs_syslog
         ucsHostNameKey SyslogSource
-        coloregion SJC2
+        coloregion FakeColo
         domain testDomain
         username testUsername
         passwordFile /etc/password/ucsPassword
@@ -21,7 +21,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
     BAD_LOGIN_CONFIG = %[
         @type process_ucs_syslog
         ucsHostNameKey SyslogSource
-        coloregion SJC2
+        coloregion FakeColo
         domain testDomain
         username badUsername
         passwordFile /etc/password/ucsPassword
@@ -102,7 +102,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         ]
         filtered_records = filter(records)
         assert_equal records[0]['message'], filtered_records[0]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
         assert_equal 'Soft Shutdown', filtered_records[0]['event']
         assert_equal 'begin', filtered_records[0]['stage']
         assert_equal 'event', filtered_records[0]['type']
@@ -140,7 +140,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         ]
         filtered_records = filter(records)
         assert_equal records[0]['message'], filtered_records[0]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
         assert_equal '', filtered_records[0]['event']
         assert_equal '', filtered_records[0]['stage']
         assert_equal 'fault', filtered_records[0]['type']
@@ -190,17 +190,17 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         filtered_records = filter(records)
         
         assert_equal records[0]['message'], filtered_records[0]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
         assert_equal "", filtered_records[0]['event']
         assert_equal "", filtered_records[0]['stage']
 
         assert_equal records[1]['message'], filtered_records[1]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[1]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[1]['machineId']
         assert_equal "Internal Restart", filtered_records[1]['event']
         assert_equal "begin", filtered_records[1]['stage']
 
         assert_equal records[2]['message'], filtered_records[2]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[2]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[2]['machineId']
         assert_equal "Internal Restart", filtered_records[2]['event']
         assert_equal "end", filtered_records[2]['stage']
     end
@@ -229,7 +229,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         ]
         filtered_records = filter(records)
         assert_equal records[0]['message'], filtered_records[0]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
         assert_equal 'Soft Shutdown', filtered_records[0]['event']
         assert_equal 'begin', filtered_records[0]['stage']
         assert_equal 'event', filtered_records[0]['type']
