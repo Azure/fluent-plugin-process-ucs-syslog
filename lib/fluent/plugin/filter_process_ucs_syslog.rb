@@ -30,6 +30,9 @@ module Fluent::Plugin
     @@externalRestartEvent = "Restart"
     @@internalRestartEvent = "Internal Restart"
 
+    @@etcdHostname = "etcd"
+    @@etcdPort = 2379
+
     def configure(conf)
       super
     end
@@ -66,6 +69,8 @@ module Fluent::Plugin
       else
         processFaults(record)
       end
+
+      updateEtcd(record)
 
       return record
     end
@@ -187,7 +192,7 @@ module Fluent::Plugin
       begin
         serviceProfile = getServiceProfile(record[ucsHostNameKey], chassisNumber, bladeNumber, 1)
       rescue SecurityError => se
-        record["error"] = se.message
+        record["error"] += "Error getting service profile: #{se.message}"
       end
 
       if !serviceProfile.to_s.empty?
@@ -203,8 +208,8 @@ module Fluent::Plugin
 
     def getUcsWithRetry(host, queryBody, retries)
       if retries > 5
-        log.error "Unable to login to UCS to get service profile"
-        raise SecurityError, "Unable to login to UCS to get service profile"
+        log.error "Unable to login to UCS"
+        raise SecurityError, "Unable to login to UCS"
       end
 
       token = getToken(host)
@@ -238,6 +243,31 @@ module Fluent::Plugin
       end
 
       return token
+    end
+
+    def updateEtcd(record)
+      sourceIp = record[ucsHostNameKey]
+
+      uri = URI.parse("http://#{@@etcdHostname}:#{@@etcdPort}/v2/keys/#{sourceIp}")
+      request = Net::HTTP::Put.new(uri)
+
+      req_options = {
+        use_ssl: uri.scheme == "https",
+      }
+
+      begin
+        response = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|
+          http.request(request)
+        end
+
+        if !response.kind_of? Net::HTTPSuccess
+          log.error "Error updating etcd: Error code: #{response.code} Response: #{response.value}"
+          record["error"] += "Error updating etcd: Error code: #{response.code} Response: #{response.value}"
+        end
+      rescue SocketError => se
+        log.error "Error updating etcd: SocketError: #{se.message}"
+        record["error"] += "Error updating etcd: SocketError: #{se.message}"
+      end
     end
 
     def callUcsApi(host, body)

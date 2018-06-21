@@ -12,7 +12,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
     CONFIG = %[
         @type process_ucs_syslog
         ucsHostNameKey SyslogSource
-        coloregion SJC2
+        coloregion FakeColo
         domain testDomain
         username testUsername
         passwordFile /etc/password/ucsPassword
@@ -21,7 +21,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
     BAD_LOGIN_CONFIG = %[
         @type process_ucs_syslog
         ucsHostNameKey SyslogSource
-        coloregion SJC2
+        coloregion FakeColo
         domain testDomain
         username badUsername
         passwordFile /etc/password/ucsPassword
@@ -37,7 +37,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
             def callUcsApi(host, body)
                 if body.delete(' ') == "<aaaLogin inName=\"testDomain\\testUsername\" inPassword=\"testPassword\"></aaaLogin>".delete(' ') && host == "1.1.1.1"
                     return '<aaaLogin cookie="" response="yes" outCookie="1111111111/12345678-abcd-abcd-abcd-123456789000"> </aaaLogin>'
-                elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-7\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
+                elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-7\"></configResolveDn>".delete(' ') && (host == "1.1.1.1" || host == "1.1.1.2")
                     return '<lsServer assignedToDn="org-root/org-T100/ls-testServiceProfile"/>'
                 elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-5\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
                     return '<lsServer assignedToDn=""/>'
@@ -68,6 +68,12 @@ class ProcessUcsSyslog < Test::Unit::TestCase
                     return ''
                 end
             end
+
+            def updateEtcd(record)
+                if record["SyslogSource"] != "1.1.1.1"
+                    return record["error"] += "Error updating etcd: Test Error"
+                end
+            end
         end.configure(conf)
     end
 
@@ -96,7 +102,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         ]
         filtered_records = filter(records)
         assert_equal records[0]['message'], filtered_records[0]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
         assert_equal 'Soft Shutdown', filtered_records[0]['event']
         assert_equal 'begin', filtered_records[0]['stage']
         assert_equal 'event', filtered_records[0]['type']
@@ -134,7 +140,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         ]
         filtered_records = filter(records)
         assert_equal records[0]['message'], filtered_records[0]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
         assert_equal '', filtered_records[0]['event']
         assert_equal '', filtered_records[0]['stage']
         assert_equal 'fault', filtered_records[0]['type']
@@ -184,17 +190,17 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         filtered_records = filter(records)
         
         assert_equal records[0]['message'], filtered_records[0]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
         assert_equal "", filtered_records[0]['event']
         assert_equal "", filtered_records[0]['stage']
 
         assert_equal records[1]['message'], filtered_records[1]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[1]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[1]['machineId']
         assert_equal "Internal Restart", filtered_records[1]['event']
         assert_equal "begin", filtered_records[1]['stage']
 
         assert_equal records[2]['message'], filtered_records[2]['message']
-        assert_equal 'Cisco_UCS:SJC2:org-root/org-T100/ls-testServiceProfile', filtered_records[2]['machineId']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[2]['machineId']
         assert_equal "Internal Restart", filtered_records[2]['event']
         assert_equal "end", filtered_records[2]['stage']
     end
@@ -211,6 +217,25 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         end
         filtered_records = filter(records, BAD_LOGIN_CONFIG)
         assert_equal "", filtered_records[0]['machineId']
-        assert_equal "Unable to login to UCS to get service profile", filtered_records[0]['error']
+        assert_equal "Error getting service profile: Unable to login to UCS", filtered_records[0]['error']
+    end
+
+    def test_filter_bad_etcd_response
+        records = [
+            { 
+                "message" => ": 2018 May  3 00:05:36 IST: %UCSM-6-EVENT: [E4195921][8743116][transition][ucs-HANATDIT][] [FSM:BEGIN]: Soft shutdown of server sys/chassis-4/blade-7(FSM:sam:dme:ComputePhysicalSoftShutdown)",
+                "SyslogSource" => "1.1.1.2"
+            }
+        ]
+        filtered_records = filter(records)
+        assert_equal records[0]['message'], filtered_records[0]['message']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
+        assert_equal 'Soft Shutdown', filtered_records[0]['event']
+        assert_equal 'begin', filtered_records[0]['stage']
+        assert_equal 'event', filtered_records[0]['type']
+        assert_equal 'info', filtered_records[0]['severity']
+        assert_equal '', filtered_records[0]['mnemonic']
+        assert_equal '', filtered_records[0]['device']
+        assert_equal "Error updating etcd: Test Error", filtered_records[0]['error']
     end
 end
