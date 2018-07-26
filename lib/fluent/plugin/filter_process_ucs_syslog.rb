@@ -24,11 +24,11 @@ module Fluent::Plugin
     @@bladeRegex = /sys\/chassis-(\d)\/blade-(\d)/
     @@stageRegex = /\[FSM:(\w+)\]/
 
-    @@bootEvent = "Boot"
-    @@softShutdownEvent = "Soft Shutdown"
-    @@hardShutdownEvent = "Hard Shutdown"
-    @@externalRestartEvent = "Restart"
-    @@internalRestartEvent = "Internal Restart"
+    @@bootEvent = "boot"
+    @@softShutdownEvent = "soft shutdown"
+    @@hardShutdownEvent = "hard shutdown"
+    @@externalRestartEvent = "restart"
+    @@internalRestartEvent = "internal restart"
 
     @@etcdHostname = "etcd"
     @@etcdPort = 2379
