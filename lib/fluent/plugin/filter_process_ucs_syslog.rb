@@ -24,11 +24,11 @@ module Fluent::Plugin
     @@bladeRegex = /sys\/chassis-(\d)\/blade-(\d)/
     @@stageRegex = /\[FSM:(\w+)\]/
 
-    @@bootEvent = "boot"
-    @@softShutdownEvent = "soft shutdown"
-    @@hardShutdownEvent = "hard shutdown"
-    @@externalRestartEvent = "restart"
-    @@internalRestartEvent = "internal restart"
+    @@bootEvent = "Boot"
+    @@softShutdownEvent = "Soft Shutdown"
+    @@hardShutdownEvent = "Hard Shutdown"
+    @@externalRestartEvent = "Restart"
+    @@internalRestartEvent = "Internal Restart"
 
     @@etcdHostname = "etcd"
     @@etcdPort = 2379
@@ -113,8 +113,7 @@ module Fluent::Plugin
       record["device"] = message[@@tagesRegex, 3]
 
       # Check if it is an internal restart
-      # Determining interal reboot end is still a work in progress.
-      # determineInternalReboot(record)
+      determineInternalReboot(record)
     end
 
     def determineInternalReboot(record)
