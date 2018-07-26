@@ -103,7 +103,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         filtered_records = filter(records)
         assert_equal records[0]['message'], filtered_records[0]['message']
         assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
-        assert_equal 'soft shutdown', filtered_records[0]['event']
+        assert_equal 'Soft Shutdown', filtered_records[0]['event']
         assert_equal 'begin', filtered_records[0]['stage']
         assert_equal 'event', filtered_records[0]['type']
         assert_equal 'info', filtered_records[0]['severity']
@@ -196,13 +196,13 @@ class ProcessUcsSyslog < Test::Unit::TestCase
 
         assert_equal records[1]['message'], filtered_records[1]['message']
         assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[1]['machineId']
-        assert_equal "internal restart", filtered_records[1]['event']
+        assert_equal "Internal Restart", filtered_records[1]['event']
         assert_equal "begin", filtered_records[1]['stage']
 
         assert_equal records[2]['message'], filtered_records[2]['message']
         assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[2]['machineId']
-        # assert_equal "internal restart", filtered_records[2]['event']
-        # assert_equal "end", filtered_records[2]['stage']
+        assert_equal "Internal Restart", filtered_records[2]['event']
+        assert_equal "end", filtered_records[2]['stage']
     end
 
     def test_filter_bad_login
@@ -230,7 +230,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         filtered_records = filter(records)
         assert_equal records[0]['message'], filtered_records[0]['message']
         assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
-        assert_equal 'soft shutdown', filtered_records[0]['event']
+        assert_equal 'Soft Shutdown', filtered_records[0]['event']
         assert_equal 'begin', filtered_records[0]['stage']
         assert_equal 'event', filtered_records[0]['type']
         assert_equal 'info', filtered_records[0]['severity']
