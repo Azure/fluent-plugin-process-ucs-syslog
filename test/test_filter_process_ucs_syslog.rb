@@ -161,6 +161,17 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         assert_equal "2018 Apr 30 18:11:59 UTC: %AUTHPRIV-5-SYSTEM_MSG: New user added with username ucs-HANATDI - securityd", filtered_records[0]['message']
     end
 
+    def test_filter_keep_service_account_username
+        records = [
+            { 
+                "message" => "2018 Apr 30 18:11:59 UTC: %AUTHPRIV-5-SYSTEM_MSG: New user added with username testDomain\\testUsername - securityd",
+                "SyslogSource" => "1.1.1.1"
+            }
+        ]
+        filtered_records = filter(records)
+        assert_equal "2018 Apr 30 18:11:59 UTC: %AUTHPRIV-5-SYSTEM_MSG: New user added with username testDomain\\testUsername - securityd", filtered_records[0]['message']
+    end
+
     def test_filter_no_service_profile
         records = [
             { 
