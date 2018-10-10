@@ -48,7 +48,7 @@ module Fluent::Plugin
       record["device"] = ""
       record["error"] = ""
 
-      fullUsername = domain + "\\" + username
+      fullUsername = "#{domain}\\#{username}"
       if !record["message"].include? fullUsername
         # Filter out usernames
         record["message"] = record["message"].gsub(/\\[-\w.]+/, "")
