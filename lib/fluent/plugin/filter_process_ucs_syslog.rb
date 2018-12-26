@@ -47,11 +47,14 @@ module Fluent::Plugin
       record["mnemonic"] = ""
       record["device"] = ""
       record["error"] = ""
+      record["executedBy"] = ""
 
       fullUsername = "#{domain}\\#{username}"
       if !record["message"].include? fullUsername
         # Filter out usernames
         record["message"] = record["message"].gsub(/\\[-\w.]+/, "")
+      else
+        record["executedBy"] = fullUsername
       end
 
       # Append machine id if found

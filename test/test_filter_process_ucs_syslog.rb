@@ -170,6 +170,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         ]
         filtered_records = filter(records)
         assert_equal "2018 Apr 30 18:11:59 UTC: %AUTHPRIV-5-SYSTEM_MSG: New user added with username testDomain\\testUsername - securityd", filtered_records[0]['message']
+        assert_equal "testDomain\\testUsername", filtered_records[0]['executedBy']
     end
 
     def test_filter_no_service_profile
