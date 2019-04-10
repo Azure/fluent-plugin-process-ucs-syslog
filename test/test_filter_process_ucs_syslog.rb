@@ -39,6 +39,8 @@ class ProcessUcsSyslog < Test::Unit::TestCase
                     return '<aaaLogin cookie="" response="yes" outCookie="1111111111/12345678-abcd-abcd-abcd-123456789000"> </aaaLogin>'
                 elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-7\"></configResolveDn>".delete(' ') && (host == "1.1.1.1" || host == "1.1.1.2")
                     return '<lsServer assignedToDn="org-root/org-T100/ls-testServiceProfile"/>'
+                elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-14/blade-7\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
+                    return '<lsServer assignedToDn="org-root/org-T100/ls-testServiceProfile2"/>'
                 elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-5\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
                     return '<lsServer assignedToDn=""/>'
                 elsif body.delete(' ') == "<aaaLogin inName=\"testDomain\\badUsername\" inPassword=\"testPassword\"></aaaLogin>".delete(' ') && host == "1.1.1.1"
@@ -103,6 +105,25 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         filtered_records = filter(records)
         assert_equal records[0]['message'], filtered_records[0]['message']
         assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
+        assert_equal 'soft shutdown', filtered_records[0]['event']
+        assert_equal 'begin', filtered_records[0]['stage']
+        assert_equal 'event', filtered_records[0]['type']
+        assert_equal 'info', filtered_records[0]['severity']
+        assert_equal '', filtered_records[0]['mnemonic']
+        assert_equal '', filtered_records[0]['device']
+        assert_equal '', filtered_records[0]['error']
+    end
+
+    def test_event_filter_double_digit_chassis
+        records = [
+            { 
+                "message" => ": 2018 May  3 00:05:36 IST: %UCSM-6-EVENT: [E4195921][8743116][transition][ucs-HANATDIT][] [FSM:BEGIN]: Soft shutdown of server sys/chassis-14/blade-7(FSM:sam:dme:ComputePhysicalSoftShutdown)",
+                "SyslogSource" => "1.1.1.1"
+            }
+        ]
+        filtered_records = filter(records)
+        assert_equal records[0]['message'], filtered_records[0]['message']
+        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile2', filtered_records[0]['machineId']
         assert_equal 'soft shutdown', filtered_records[0]['event']
         assert_equal 'begin', filtered_records[0]['stage']
         assert_equal 'event', filtered_records[0]['type']

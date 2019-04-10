@@ -21,7 +21,7 @@ module Fluent::Plugin
     @@tagesRegex = /\[[\w]+\]\[([\w]+)\]\[([-\w]+)\]\[([-\/\w]+)\]/
     @@restartAdaptorRegex = /Adapter (\d)\/(\d)\/\d restarted/
 
-    @@bladeRegex = /sys\/chassis-(\d)\/blade-(\d)/
+    @@bladeRegex = /sys\/chassis-([\d]+)\/blade-(\d)/
     @@stageRegex = /\[FSM:(\w+)\]/
 
     @@bootEvent = "boot"
