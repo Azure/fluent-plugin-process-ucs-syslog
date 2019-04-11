@@ -39,7 +39,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
                     return '<aaaLogin cookie="" response="yes" outCookie="1111111111/12345678-abcd-abcd-abcd-123456789000"> </aaaLogin>'
                 elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-7\"></configResolveDn>".delete(' ') && (host == "1.1.1.1" || host == "1.1.1.2")
                     return '<lsServer assignedToDn="org-root/org-T100/ls-testServiceProfile"/>'
-                elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-14/blade-7\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
+                elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-14/blade-17\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
                     return '<lsServer assignedToDn="org-root/org-T100/ls-testServiceProfile2"/>'
                 elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-5\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
                     return '<lsServer assignedToDn=""/>'
@@ -117,7 +117,7 @@ class ProcessUcsSyslog < Test::Unit::TestCase
     def test_event_filter_double_digit_chassis
         records = [
             { 
-                "message" => ": 2018 May  3 00:05:36 IST: %UCSM-6-EVENT: [E4195921][8743116][transition][ucs-HANATDIT][] [FSM:BEGIN]: Soft shutdown of server sys/chassis-14/blade-7(FSM:sam:dme:ComputePhysicalSoftShutdown)",
+                "message" => ": 2018 May  3 00:05:36 IST: %UCSM-6-EVENT: [E4195921][8743116][transition][ucs-HANATDIT][] [FSM:BEGIN]: Soft shutdown of server sys/chassis-14/blade-17(FSM:sam:dme:ComputePhysicalSoftShutdown)",
                 "SyslogSource" => "1.1.1.1"
             }
         ]
