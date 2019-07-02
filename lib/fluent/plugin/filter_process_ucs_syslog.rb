@@ -30,9 +30,6 @@ module Fluent::Plugin
     @@externalRestartEvent = "restart"
     @@internalRestartEvent = "internal restart"
 
-    @@etcdHostname = "etcd"
-    @@etcdPort = 2379
-
     def configure(conf)
       super
     end
@@ -72,8 +69,6 @@ module Fluent::Plugin
       else
         processFaults(record)
       end
-
-      updateEtcd(record)
 
       return record
     end
@@ -244,33 +239,7 @@ module Fluent::Plugin
       File.open(@@tokenFile, "w") do |f|
         f.write(token)
       end
-
       return token
-    end
-
-    def updateEtcd(record)
-      sourceIp = record[ucsHostNameKey]
-
-      uri = URI.parse("http://#{@@etcdHostname}:#{@@etcdPort}/v2/keys/#{sourceIp}")
-      request = Net::HTTP::Put.new(uri)
-
-      req_options = {
-        use_ssl: uri.scheme == "https",
-      }
-
-      begin
-        response = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|
-          http.request(request)
-        end
-
-        if !response.kind_of? Net::HTTPSuccess
-          log.error "Error updating etcd: Error code: #{response.code} Response: #{response.value}"
-          record["error"] += "Error updating etcd: Error code: #{response.code} Response: #{response.value}"
-        end
-      rescue SocketError => se
-        log.error "Error updating etcd: SocketError: #{se.message}"
-        record["error"] += "Error updating etcd: SocketError: #{se.message}"
-      end
     end
 
     def callUcsApi(host, body)

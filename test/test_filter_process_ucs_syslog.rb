@@ -72,12 +72,6 @@ class ProcessUcsSyslog < Test::Unit::TestCase
                     return ''
                 end
             end
-
-            def updateEtcd(record)
-                if record["SyslogSource"] != "1.1.1.1"
-                    return record["error"] += "Error updating etcd: Test Error"
-                end
-            end
         end.configure(conf)
     end
 
@@ -271,24 +265,5 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         filtered_records = filter(records, BAD_LOGIN_CONFIG)
         assert_equal "", filtered_records[0]['machineId']
         assert_equal "Error getting service profile: Unable to login to UCS", filtered_records[0]['error']
-    end
-
-    def test_filter_bad_etcd_response
-        records = [
-            { 
-                "message" => ": 2018 May  3 00:05:36 IST: %UCSM-6-EVENT: [E4195921][8743116][transition][ucs-HANATDIT][] [FSM:BEGIN]: Soft shutdown of server sys/chassis-4/blade-7(FSM:sam:dme:ComputePhysicalSoftShutdown)",
-                "SyslogSource" => "1.1.1.2"
-            }
-        ]
-        filtered_records = filter(records)
-        assert_equal records[0]['message'], filtered_records[0]['message']
-        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
-        assert_equal 'soft shutdown', filtered_records[0]['event']
-        assert_equal 'begin', filtered_records[0]['stage']
-        assert_equal 'event', filtered_records[0]['type']
-        assert_equal 'info', filtered_records[0]['severity']
-        assert_equal '', filtered_records[0]['mnemonic']
-        assert_equal '', filtered_records[0]['device']
-        assert_equal "Error updating etcd: Test Error", filtered_records[0]['error']
     end
 end
