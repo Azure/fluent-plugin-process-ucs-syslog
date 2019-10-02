@@ -217,6 +217,8 @@ module Fluent::Plugin
       
       if !errorCode.to_s.empty?
         log.info "login failed, retry ", retries
+        puts response.inspect
+        log.info "response: ", response.inspect
         
         if File.exist?(@@tokenFile)
           logoutToken(host, File.read(@@tokenFile)
