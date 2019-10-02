@@ -217,11 +217,26 @@ module Fluent::Plugin
       
       if !errorCode.to_s.empty?
         log.info "login failed, retry ", retries
+        puts response.inspect
+        log.info "response: ", response.inspect
+        
+        if File.exist?(@@tokenFile)
+          logoutToken(host, File.read(@@tokenFile)
+        end
+          
         File.delete(@@tokenFile)
         response = getUcsWithRetry(host, queryBody, retries + 1)
       end
 
       return response
+    end
+    
+    def logoutToken(host, token)
+      logoutBody = "<aaaLogout inCookie=\"#{token}\" />"
+      log.info "logging out with body ", logoutBody
+      
+      response = callUcsApi(host, logoutBody)
+      log.info "logging out response ", response
     end
 
     def getToken(host)
