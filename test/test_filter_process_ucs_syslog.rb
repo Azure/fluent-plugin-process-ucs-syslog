@@ -27,12 +27,6 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         passwordFile /etc/password/ucsPassword
       ]
 
-    EPOCH_FUTURE = Time.now.to_i + 10000 # put far in future so it doesn't expire
-    VALID_TOKEN = "%d/12345678-abcd-abcd-abcd-123456789000" % EPOCH_FUTURE
-
-    EPOCH_PAST = Time.now.to_i - 10000 # put far in past so it's guaranteed to be detected as old
-    OLD_TOKEN = "%d/87654321-dfff-dfff-dfff-000987654321" % EPOCH_PAST
-
     def create_driver(conf)
         Fluent::Test::Driver::Filter.new(Fluent::Plugin::ProcessUcsSyslog) do
             # for testing
@@ -42,23 +36,21 @@ class ProcessUcsSyslog < Test::Unit::TestCase
 
             def callUcsApi(host, body)
                 if body.delete(' ') == "<aaaLogin inName=\"testDomain\\testUsername\" inPassword=\"testPassword\"></aaaLogin>".delete(' ') && host == "1.1.1.1"
-                    return '<aaaLogin cookie="" response="yes" outCookie="%{token}"> </aaaLogin>' % {token: VALID_TOKEN}
-                elsif body.delete(' ') == "<aaaRefresh cookie=\"#{OLD_TOKEN}\" inCookie=\"#{OLD_TOKEN}\" inName=\"testDomain\\testUsername\" inPassword=\"testPassword\"></aaaRefresh>".delete(' ') && host == "1.1.1.1"
-                    return '<aaaRefresh cookie="%{oldToken}" response="yes" outCookie="%{newToken}" outRefreshPeriod="600" outPriv="admin,read-only" outDomains="" outChannel="noencssl" outEvtChannel="noencssl" outName="ucs-HANATDIT\sa-hanarp"> </aaaRefresh>' % {oldToken: OLD_TOKEN, newToken: VALID_TOKEN}
-                elsif body.delete(' ') == "<configResolveDn cookie=\"#{VALID_TOKEN}\" dn=\"sys/chassis-4/blade-7\"></configResolveDn>".delete(' ') && (host == "1.1.1.1" || host == "1.1.1.2")
+                    return '<aaaLogin cookie="" response="yes" outCookie="1111111111/12345678-abcd-abcd-abcd-123456789000"> </aaaLogin>'
+                elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-7\"></configResolveDn>".delete(' ') && (host == "1.1.1.1" || host == "1.1.1.2")
                     return '<lsServer assignedToDn="org-root/org-T100/ls-testServiceProfile"/>'
-                elsif body.delete(' ') == "<configResolveDn cookie=\"#{VALID_TOKEN}\" dn=\"sys/chassis-14/blade-7\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
+                elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-14/blade-7\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
                     return '<lsServer assignedToDn="org-root/org-T100/ls-testServiceProfile2"/>'
-                elsif body.delete(' ') == "<configResolveDn cookie=\"#{VALID_TOKEN}\" dn=\"sys/chassis-4/blade-17\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
+                elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-17\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
                     return '<lsServer assignedToDn="org-root/org-T100/ls-testServiceProfile3"/>'
-                elsif body.delete(' ') == "<configResolveDn cookie=\"#{VALID_TOKEN}\" dn=\"sys/chassis-4/blade-5\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
+                elsif body.delete(' ') == "<configResolveDn cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\" dn=\"sys/chassis-4/blade-5\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
                     return '<lsServer assignedToDn=""/>'
                 elsif body.delete(' ') == "<aaaLogin inName=\"testDomain\\badUsername\" inPassword=\"testPassword\"></aaaLogin>".delete(' ') && host == "1.1.1.1"
                     return '<aaaLogin cookie="" response="yes" errorCode="551" invocationResult="unidentified-fail" errorDescr="Authentication failed"> </aaaLogin>'
                 elsif body.delete(' ') == "<configResolveDn cookie=\"\" dn=\"sys/chassis-4/blade-9\"></configResolveDn>".delete(' ') && host == "1.1.1.1"
                     return '<configResolveDn errorCode="552" errorDescr="Authorization required"> </configResolveDn>'
                 elsif body.delete(' ') == "<configResolveClass
-                        cookie=\"#{VALID_TOKEN}\"
+                        cookie=\"1111111111/12345678-abcd-abcd-abcd-123456789000\"
                         inHierarchical=\"false\"
                         classId=\"faultInst\">
                         <inFilter>
@@ -270,33 +262,8 @@ class ProcessUcsSyslog < Test::Unit::TestCase
         if File.exist?(@@tokenFile)
             File.delete(@@tokenFile)
         end
-        
         filtered_records = filter(records, BAD_LOGIN_CONFIG)
         assert_equal "", filtered_records[0]['machineId']
-        assert_equal "Error getting service profile: Max retries calling UCS reached", filtered_records[0]['error']
-    end
-
-    def test_filter_refresh_login
-        records = [
-            { 
-                "message" => ": 2018 May  3 00:05:36 IST: %UCSM-6-EVENT: [E4195921][8743116][transition][ucs-HANATDIT][] [FSM:BEGIN]: Soft shutdown of server sys/chassis-4/blade-7(FSM:sam:dme:ComputePhysicalSoftShutdown)",
-                "SyslogSource" => "1.1.1.1"
-            }
-        ]
-        File.write(@@tokenFile, OLD_TOKEN)
-
-        filtered_records = filter(records)
-
-        # old token should get refreshed, and still filter record successfully
-        assert_equal '', filtered_records[0]['error']
-        assert_equal records[0]['message'], filtered_records[0]['message']
-        assert_equal 'Cisco_UCS:FakeColo:org-root/org-T100/ls-testServiceProfile', filtered_records[0]['machineId']
-        assert_equal 'soft shutdown', filtered_records[0]['event']
-        assert_equal 'begin', filtered_records[0]['stage']
-        assert_equal 'event', filtered_records[0]['type']
-        assert_equal 'info', filtered_records[0]['severity']
-        assert_equal '', filtered_records[0]['mnemonic']
-        assert_equal '', filtered_records[0]['device']
-        assert_equal VALID_TOKEN, File.read(@@tokenFile)
+        assert_equal "Error getting service profile: Unable to login to UCS", filtered_records[0]['error']
     end
 end
