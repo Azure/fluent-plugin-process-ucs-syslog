@@ -11,8 +11,6 @@ module Fluent::Plugin
     config_param :passwordFile, :string
 
     @@tokenFile = "/tmp/token"
-    # the epochs have a unit of seconds
-    @@refreshTokenAfterXSeconds = 60*60 # since tokens expire at 2 hours, refresh after 1 hour
 
     @@eventRegex = /%UCSM-\d-([A-Z_]+)/
 
@@ -37,6 +35,7 @@ module Fluent::Plugin
     end
 
     def filter(tag, time, record)
+
       record["machineId"] = ""
       record["event"] = ""
       record["stage"] = ""
@@ -59,7 +58,6 @@ module Fluent::Plugin
       splitMessage = record["message"].split(": ")
       if splitMessage[2] !~ @@eventRegex
         # Did not recognize message, do nothing
-        log.info "Returning record as-is: did not recognize message #{record["message"]}; looking for regex in message: #{@@eventRegex}"
         return record
       end
 
@@ -183,7 +181,6 @@ module Fluent::Plugin
     def determineMachineId(record, regex)
       message = record["message"]
       if message !~ regex
-        log.info "Returning record without BareMetalMachineID info: message #{message} did not match regex #{regex}"
         return
       end
 
@@ -209,16 +206,19 @@ module Fluent::Plugin
 
     def getUcsWithRetry(host, queryBody, retries)
       if retries > 5
-        log.error "Max retries calling UCS reached"
-        raise SecurityError, "Max retries calling UCS reached"
+        log.error "Unable to login to UCS"
+        raise SecurityError, "Unable to login to UCS"
       end
 
       token = getToken(host)
+
       response = callUcsApi(host, queryBody % {token: token})
       errorCode = response[/errorCode="(\d+)"/,1]
-
+      
       if !errorCode.to_s.empty?
-        log.info "Calling UCS API failed, retry #{retries}; response: #{response.inspect}"
+        log.info "login failed, retry ", retries
+        puts response.inspect
+        log.info "response: ", response.inspect
 
         if File.exist?(@@tokenFile)
           logoutToken(host, File.read(@@tokenFile))
@@ -240,42 +240,16 @@ module Fluent::Plugin
     end
 
     def getToken(host)
-      tokenResponse = ""
-      fullUsername = domain + "\\" + username
-      password = getPassword()
-
       if File.exist?(@@tokenFile)
-        # Example format: 1604697553/058fb963-cf5b-40fc-a1c0-5d713ec2cbad, where 1604697553 is the epoch when the token was generated
-        token = File.read(@@tokenFile).strip
-
-        if token == ""
-          log.info "File does not contain a token; logging into UCS"
-          loginBody = "<aaaLogin inName=\"#{fullUsername}\" inPassword=\"#{password}\"></aaaLogin>"
-          tokenResponse = callUcsApi(host, loginBody)
-        else
-          tokenEpochStr = token[/(\d+)\/.+/,1]
-          age = Time.now.to_i - tokenEpochStr.to_i
-          if age <= @@refreshTokenAfterXSeconds
-            log.info "Existing token will continue being used (not older than #{@@refreshTokenAfterXSeconds} seconds)"
-            return token
-          else
-            log.info "Existing token will be refreshed, as it is #{age} seconds old"
-
-            # aaaRefresh request body documented here: https://www.cisco.com/c/en/us/td/docs/unified_computing/ucs/e/api/guide/b_cimc_api_book/b_cimc_api_book_chapter_010.pdf
-            # response will have a new token, with a new epoch
-            refreshBody = "<aaaRefresh cookie=\"#{token}\" inCookie=\"#{token}\" inName=\"#{fullUsername}\" inPassword=\"#{password}\"></aaaRefresh>"
-            # example response: <aaaRefresh cookie="1604697553/058fb963-cf5b-40fc-a1c0-5d713ec2cbad" response="yes" outCookie="1604699567/27696198-dd82-444d-98c6-0e36a3f927cd" outRefreshPeriod="600" outPriv="admin,read-only" outDomains="" outChannel="noencssl" outEvtChannel="noencssl" outName="ucs-HANATDIT\sa-hanarp"> </aaaRefresh>
-            # once the new token is generated, making calls with the old token will result in error; example: <configResolveDn dn="sys/chassis-1/blade-1" cookie="1607722287/7a0aa294-1d6a-44b6-abc3-15c65b157183" response="yes" errorCode="552" invocationResult="service-unavailable" errorDescr="Authorization required"> </configResolveDn>
-            tokenResponse = callUcsApi(host, refreshBody)
-          end
-        end
-      else
-        log.info "No existing token; logging into UCS"
-        loginBody = "<aaaLogin inName=\"#{fullUsername}\" inPassword=\"#{password}\"></aaaLogin>"
-        tokenResponse = callUcsApi(host, loginBody)
+        token = File.read(@@tokenFile)
+        return token
       end
 
-      token = tokenResponse[/outCookie="([\w\/-]+)"/,1]
+      password = getPassword()
+      fullUsername = domain + "\\" + username
+      loginBody = "<aaaLogin inName=\"#{fullUsername}\" inPassword=\"#{password}\"></aaaLogin>"
+      response = callUcsApi(host, loginBody)
+      token = response[/outCookie="([\w\/-]+)"/,1]
 
       File.open(@@tokenFile, "w") do |f|
         f.write(token)
