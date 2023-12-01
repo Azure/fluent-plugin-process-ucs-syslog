@@ -37,7 +37,7 @@ module Fluent::Plugin
     def configure(conf)
       super
       if @domain.nil?
-        log.info("Domain not specified, assuming canary environment")
+        log.info("Domain not specified in that scenerio")
       else
         log.info("Using domain: #{@domain}")
       end
