@@ -53,11 +53,8 @@ module Fluent::Plugin
       record["device"] = ""
       record["error"] = ""
 
-      if @domain.nil?
-        fullUsername = "#{username}"
-      else
-        fullUsername = "#{domain}\\#{username}"
-      end
+      # Call the function to get the full username
+      fullUsername = get_full_username(@domain, @username)
       
       if !record["message"].include? fullUsername
         # Filter out usernames
@@ -254,11 +251,8 @@ module Fluent::Plugin
     def getToken(host)
       tokenResponse = ""
 
-      if @domain.nil?
-        fullUsername = username
-      else
-        fullUsername = domain + "\\" + username
-      end
+      # Call the function to get the full username
+      fullUsername = get_full_username(@domain, @username)
 
       password = getPassword()
 
@@ -299,6 +293,15 @@ module Fluent::Plugin
         f.write(token)
       end
       return token
+    end
+
+    def get_full_username(domain, username)
+      if domain.nil?
+        fullUsername = username
+      else
+        fullUsername = "#{domain}\\#{username}"
+      end
+      fullUsername
     end
 
     def callUcsApi(host, body)
