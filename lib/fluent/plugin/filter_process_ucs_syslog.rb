@@ -6,9 +6,11 @@ module Fluent::Plugin
 
     config_param :ucsHostNameKey, :string
     config_param :coloregion, :string
-    config_param :domain, :string
     config_param :username, :string
     config_param :passwordFile, :string
+
+    # Define an optional configuration parameter for 'domain' with no default
+    config_param :domain, :string, default: nil
 
     @@tokenFile = "/tmp/token"
     # the epochs have a unit of seconds
@@ -34,6 +36,11 @@ module Fluent::Plugin
 
     def configure(conf)
       super
+      if @domain.nil?
+        log.info("Domain not specified in that scenerio")
+      else
+        log.info("Using domain: #{@domain}")
+      end
     end
 
     def filter(tag, time, record)
@@ -46,7 +53,9 @@ module Fluent::Plugin
       record["device"] = ""
       record["error"] = ""
 
-      fullUsername = "#{domain}\\#{username}"
+      # Call the function to get the full username
+      fullUsername = get_full_username(@domain, @username)
+      
       if !record["message"].include? fullUsername
         # Filter out usernames
         record["message"] = record["message"].gsub(/\\[-\w.]+/, "")
@@ -241,7 +250,10 @@ module Fluent::Plugin
 
     def getToken(host)
       tokenResponse = ""
-      fullUsername = domain + "\\" + username
+
+      # Call the function to get the full username
+      fullUsername = get_full_username(@domain, @username)
+
       password = getPassword()
 
       if File.exist?(@@tokenFile)
@@ -281,6 +293,15 @@ module Fluent::Plugin
         f.write(token)
       end
       return token
+    end
+
+    def get_full_username(domain, username)
+      if domain.nil?
+        fullUsername = username
+      else
+        fullUsername = "#{domain}\\#{username}"
+      end
+      fullUsername
     end
 
     def callUcsApi(host, body)
